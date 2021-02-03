@@ -97,9 +97,16 @@ WHERE b.starttime like '2012-09-14%'
 ORDER BY cost DESC;
 
 /* Q9: This time, produce the same result as in Q8, but using a subquery. */
-SELECT * 
-FROM Bookings b
-WHERE 
+SELECT subq.facility, subq.member, subq.cost 
+FROM (
+SELECT f.name AS facility, m.firstname || ' ' || m.surname as member,
+       CASE WHEN m.memid = 0 THEN f.guestcost * b.slots
+			ELSE f.membercost * b.slots END as cost
+FROM Bookings AS b
+INNER JOIN Members AS m ON b.memid = m.memid
+INNER JOIN Facilities AS f ON f.facid = b.facid 
+WHERE b.starttime like '2012-09-14%') AS subq
+ORDER BY subq.cost DESC;
 
 /* PART 2: SQLite
 
@@ -110,12 +117,39 @@ QUESTIONS:
 /* Q10: Produce a list of facilities with a total revenue less than 1000.
 The output of facility name and total revenue, sorted by revenue. Remember
 that there's a different cost for guests and members! */
+SELECT f.name AS facility,
+  SUM(CASE WHEN b.memid = 0 THEN f.guestcost * b.slots
+  ELSE f.membercost * b.slots END) AS total_revenue
+FROM Facilities f
+INNER JOIN Bookings b ON b.facid = f.facid
+GROUP BY facility
+ORDER BY total_revenue;
 
 /* Q11: Produce a report of members and who recommended them in alphabetic surname,firstname order */
-
+SELECT m.surname || ',' || m.firstname AS member,
+    (m2.surname || ',' || m2.firstname) AS recommendedby
+FROM Members m
+INNER JOIN Members m2 ON m2.memid = m.recommendedby
+ORDER BY recommendedby
 
 /* Q12: Find the facilities with their usage by member, but not guests */
-
+SELECT f.name AS facility,
+       m.surname || ',' || m.firstname AS member,
+       COUNT(*) "usage"
+FROM Facilities f
+INNER JOIN Bookings b ON f.facid = b.facid
+INNER JOIN Members m ON m.memid = b.memid
+WHERE b.memid <> 0
+GROUP BY facility, member;
 
 /* Q13: Find the facilities usage by month, but not guests */
-
+SELECT f.name AS facility,
+       m.surname || ',' || m.firstname AS member,
+       strftime('%m', b.starttime) AS "month",
+       count(*) AS "usage"
+FROM Facilities f
+INNER JOIN Bookings b ON f.facid = b.facid
+INNER JOIN Members m ON m.memid = b.memid
+WHERE b.memid <> 0
+GROUP BY facility, member, "month"
+ORDER BY "month";
